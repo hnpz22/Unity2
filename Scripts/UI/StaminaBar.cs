@@ -5,90 +5,140 @@ using UnityEngine.UI;
 
 public class StaminaBar : MonoBehaviour
 {
+    [SerializeField]
+    private Slider staminaSlider;
 
-    public Slider staminaSlider;
+    [SerializeField]
+    private float maxStamina = 100f;
 
-    public float maxStamina = 100;
+    [SerializeField]
+    private float regenRate = 20f;
+
+    [SerializeField]
+    private float spendRate = 25f;
 
     private float currentStamina;
 
-    private float regenerateStaminaTime = 0.1f;
-    private float regenerateAmount = 2;
+    private Coroutine regenCo;
+    private Coroutine spendCo;
 
-    private float losingStaminaTime = 0.1f;
+    [SerializeField]
+    private PlayerMovement playerMovement;
 
-    private Coroutine myCoroutineLosing;
-
-    private Coroutine myCoroutineRegenerate;
-
-
-    void Start()
+    private void Awake()
     {
+        if (staminaSlider == null)
+        {
+            staminaSlider = GetComponent<Slider>();
+        }
+
+        if (playerMovement == null)
+        {
+            playerMovement = FindObjectOfType<PlayerMovement>();
+        }
+    }
+
+    private void Start()
+    {
+        maxStamina = Mathf.Max(0f, maxStamina);
         currentStamina = maxStamina;
-        staminaSlider.maxValue = maxStamina;
-        staminaSlider.value = maxStamina;
+
+        if (staminaSlider != null)
+        {
+            staminaSlider.maxValue = maxStamina;
+            staminaSlider.value = maxStamina;
+        }
     }
 
-    public void UseStamina(float amount)
+    public void SpendStart(float rate)
     {
-        if (currentStamina-amount>0)
-        {
+        spendRate = Mathf.Max(0f, rate);
 
-            if (myCoroutineLosing != null )
+        if (regenCo != null)
+        {
+            StopCoroutine(regenCo);
+            regenCo = null;
+        }
+
+        if (spendCo == null && spendRate > 0f)
+        {
+            spendCo = StartCoroutine(SpendRoutine());
+        }
+    }
+
+    public void SpendStop()
+    {
+        if (spendCo != null)
+        {
+            StopCoroutine(spendCo);
+            spendCo = null;
+        }
+
+        if (!Mathf.Approximately(currentStamina, maxStamina) && regenCo == null && regenRate > 0f)
+        {
+            regenCo = StartCoroutine(RegenerateRoutine());
+        }
+    }
+
+    private IEnumerator SpendRoutine()
+    {
+        while (true)
+        {
+            float previousValue = currentStamina;
+            currentStamina = Mathf.Clamp(currentStamina - spendRate * Time.deltaTime, 0f, maxStamina);
+            UpdateSlider(previousValue);
+
+            if (Mathf.Approximately(currentStamina, 0f))
             {
-                StopCoroutine(myCoroutineLosing);
+                if (playerMovement != null)
+                {
+                    playerMovement.ForceStopSprinting();
+                }
+                break;
             }
 
-            myCoroutineLosing= StartCoroutine(LosingStaminaCoroutine(amount));
+            yield return null;
+        }
 
-            if (myCoroutineRegenerate != null)
+        spendCo = null;
+
+        if (!Mathf.Approximately(currentStamina, maxStamina) && regenCo == null && regenRate > 0f)
+        {
+            regenCo = StartCoroutine(RegenerateRoutine());
+        }
+    }
+
+    private IEnumerator RegenerateRoutine()
+    {
+        while (!Mathf.Approximately(currentStamina, maxStamina))
+        {
+            float previousValue = currentStamina;
+            currentStamina = Mathf.Clamp(currentStamina + regenRate * Time.deltaTime, 0f, maxStamina);
+            UpdateSlider(previousValue);
+
+            if (Mathf.Approximately(currentStamina, maxStamina))
             {
-                StopCoroutine(myCoroutineRegenerate);
+                break;
             }
 
-            myCoroutineRegenerate= StartCoroutine(RegenerateStaminaCoroutine());
+            yield return null;
         }
 
-        else
-        {
-            Debug.Log("No tenemos Stamina");
-            FindObjectOfType<PlayerMovement>().isSprinting = false;
-        }
+        regenCo = null;
     }
 
-
-    private IEnumerator LosingStaminaCoroutine(float amount)
+    private void UpdateSlider(float previousValue)
     {
-        while (currentStamina>=0)
+        if (staminaSlider == null)
         {
-            currentStamina -= amount;
-
-            staminaSlider.value = currentStamina;
-
-            yield return new WaitForSeconds(losingStaminaTime);
-
+            return;
         }
 
-        myCoroutineLosing = null;
-
-        FindObjectOfType<PlayerMovement>().isSprinting = false;
-
-    }
-
-    private IEnumerator RegenerateStaminaCoroutine()
-    {
-        yield return new WaitForSeconds(1);
-
-        while (currentStamina < maxStamina)
+        if (!Mathf.Approximately(previousValue, currentStamina) && !Mathf.Approximately(staminaSlider.value, currentStamina))
         {
-            currentStamina += regenerateAmount;
-
             staminaSlider.value = currentStamina;
-
-            yield return new WaitForSeconds(regenerateStaminaTime);
-
         }
-
-        myCoroutineRegenerate = null;
     }
+
+    public bool IsDepleted => Mathf.Approximately(currentStamina, 0f);
 }

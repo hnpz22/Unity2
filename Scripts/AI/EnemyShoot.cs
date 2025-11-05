@@ -10,10 +10,11 @@ public class EnemyShoot : MonoBehaviour
 
     private Transform playerPosition;
 
-    public float bulletVelocity = 100;
+    [SerializeField]
+    private float bulletSpeed = 25f;
 
 
-    
+
     void Start()
     {
         playerPosition = FindObjectOfType<PlayerMovement>().transform;
@@ -21,21 +22,25 @@ public class EnemyShoot : MonoBehaviour
         Invoke("ShootPlayer",3);
     }
 
-    
+
     void Update()
     {
-        
+
     }
 
     void ShootPlayer()
     {
-        Vector3 playerDirection = playerPosition.position - transform.position;
+        Vector3 direction = (playerPosition.position - spawnBulletPoint.position).normalized;
 
         GameObject newBullet;
 
         newBullet = Instantiate(enemyBullet,spawnBulletPoint.position,spawnBulletPoint.rotation);
 
-        newBullet.GetComponent<Rigidbody>().AddForce(playerDirection*bulletVelocity,ForceMode.Force);
+        Rigidbody bulletRigidbody = newBullet.GetComponent<Rigidbody>();
+        if (bulletRigidbody != null)
+        {
+            bulletRigidbody.velocity = direction * bulletSpeed;
+        }
 
         Invoke("ShootPlayer", 3);
 
