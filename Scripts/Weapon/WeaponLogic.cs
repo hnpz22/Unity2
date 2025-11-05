@@ -19,6 +19,24 @@ public class WeaponLogic : MonoBehaviour
 
     public bool continueShooting = false;
 
+    [SerializeField]
+    private GameManager gameManager;
+
+    private bool hasLoggedDegradedShot;
+
+    private void Awake()
+    {
+        if (gameManager == null)
+        {
+            gameManager = GameManager.InstanceOrNull();
+        }
+
+        if (gameManager == null)
+        {
+            Debug.LogWarning($"{nameof(WeaponLogic)}: GameManager reference missing. Weapon will operate in degraded mode.");
+        }
+    }
+
     private void Start()
     {
         audioSource = GetComponent<AudioSource>();
@@ -30,7 +48,7 @@ public class WeaponLogic : MonoBehaviour
 
         if (Input.GetButtonDown("Fire1") && Time.timeScale != 0)
         {
-            if (Time.time > shotRateTime && GameManager.Instance.gunAmmo > 0)
+            if (Time.time > shotRateTime && HasAmmoAvailable())
             {
                 if (continueShooting)
                 {
@@ -56,33 +74,56 @@ public class WeaponLogic : MonoBehaviour
 
     public void Shoot()
     {
-
-        if (GameManager.Instance.gunAmmo > 0)
-        {
-            if (audioSource != null)
-            {
-                audioSource.PlayOneShot(shotSound);
-            }
-
-            GameManager.Instance.gunAmmo--;
-
-
-            GameObject newBullet;
-
-            newBullet = Instantiate(bullet, spawnPoint.position, spawnPoint.rotation);
-
-            newBullet.GetComponent<Rigidbody>().AddForce(spawnPoint.forward * shotForce);
-
-            shotRateTime = Time.time + shotRate;
-
-            Destroy(newBullet, 5);
-        }
-
-        else
+        if (!HasAmmoAvailable())
         {
             CancelInvoke("Shoot");
+            return;
         }
 
+        if (audioSource != null)
+        {
+            audioSource.PlayOneShot(shotSound);
+        }
 
+        if (gameManager != null)
+        {
+            gameManager.gunAmmo--;
+        }
+
+        GameObject newBullet = Instantiate(bullet, spawnPoint.position, spawnPoint.rotation);
+        Rigidbody bulletRigidbody = newBullet.GetComponent<Rigidbody>();
+        if (bulletRigidbody != null)
+        {
+            bulletRigidbody.AddForce(spawnPoint.forward * shotForce);
+        }
+
+        shotRateTime = Time.time + shotRate;
+
+        Destroy(newBullet, 5);
+    }
+
+    private bool HasAmmoAvailable()
+    {
+        if (gameManager == null)
+        {
+            gameManager = GameManager.InstanceOrNull();
+        }
+
+        if (gameManager == null)
+        {
+            LogDegradedShotOnce();
+            return true;
+        }
+
+        return gameManager.gunAmmo > 0;
+    }
+
+    private void LogDegradedShotOnce()
+    {
+        if (!hasLoggedDegradedShot)
+        {
+            Debug.Log($"{nameof(WeaponLogic)}: Shooting without GameManager. HUD and resource tracking will not update.");
+            hasLoggedDegradedShot = true;
+        }
     }
 }

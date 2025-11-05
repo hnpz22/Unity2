@@ -6,62 +6,94 @@ using UnityEngine.SceneManagement;
 
 public class GameManager : MonoBehaviour
 {
-
-    public Text ammoText;
-
+    [SerializeField]
+    private Text ammoText;
 
     public static GameManager Instance { get; private set; }
 
+    public static GameManager InstanceOrNull() => Instance;
 
     public int gunAmmo = 10;
 
-    public Text healthText;
+    [SerializeField]
+    private Text healthText;
 
-    public int health=100;
+    [SerializeField]
+    private int currentHealth = 100;
 
-    public int maxHealth = 100;
+    [SerializeField]
+    private int maxHealth = 100;
 
-
+    private int lastDisplayedAmmo = int.MinValue;
+    private int lastDisplayedHealth = int.MinValue;
 
     private void Awake()
     {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
         Instance = this;
+        DontDestroyOnLoad(gameObject);
+        currentHealth = Mathf.Clamp(currentHealth, 0, maxHealth);
     }
 
     private void Update()
     {
-        ammoText.text = gunAmmo.ToString();
-        healthText.text = health.ToString();
+        UpdateAmmoUI();
+        UpdateHealthUI();
     }
 
     public void LoseHealth(int healthToReduce)
     {
-        health -= healthToReduce; //health = health - healthToReduce;
+        currentHealth = Mathf.Clamp(currentHealth - healthToReduce, 0, maxHealth);
         CheckHealth();
     }
 
     public void CheckHealth()
     {
-		if (health<=0)
-		{
+        if (currentHealth <= 0)
+        {
             Debug.Log("Has Muerto");
 
             SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
-		}
-
+        }
     }
 
-    public void AddHealth(int health)
+    public void AddHealth(int amount)
     {
-        if (this.health + health >= maxHealth)
+        currentHealth = Mathf.Clamp(currentHealth + amount, 0, maxHealth);
+    }
+
+    public int CurrentHealth => currentHealth;
+
+    private void UpdateAmmoUI()
+    {
+        if (ammoText == null)
         {
-            this.health = 100;
+            return;
         }
 
-        else
+        if (lastDisplayedAmmo != gunAmmo)
         {
-            this.health += health;
+            ammoText.text = gunAmmo.ToString();
+            lastDisplayedAmmo = gunAmmo;
         }
     }
 
+    private void UpdateHealthUI()
+    {
+        if (healthText == null)
+        {
+            return;
+        }
+
+        if (lastDisplayedHealth != currentHealth)
+        {
+            healthText.text = currentHealth.ToString();
+            lastDisplayedHealth = currentHealth;
+        }
+    }
 }

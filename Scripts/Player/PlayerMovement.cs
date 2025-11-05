@@ -31,13 +31,17 @@ public class PlayerMovement : MonoBehaviour
 
     public float staminaUseAmount = 5;
 
-    private StaminaBar staminaSlider;
+    private StaminaBar staminaBar;
 
     public Animator animator;
 
-    private void Start()
+    private void Awake()
     {
-        staminaSlider = FindObjectOfType<StaminaBar>();
+        staminaBar = FindObjectOfType<StaminaBar>();
+        if (staminaBar == null)
+        {
+            Debug.LogWarning($"{nameof(PlayerMovement)}: No {nameof(StaminaBar)} found. Sprinting will not consume stamina.");
+        }
     }
 
 
@@ -71,6 +75,8 @@ public class PlayerMovement : MonoBehaviour
         velocity.y += gravity * Time.deltaTime;
 
         characterController.Move(velocity * Time.deltaTime);
+
+        UpdateJumpAnimationState();
     }
 
     public void JumpCheck()
@@ -82,11 +88,6 @@ public class PlayerMovement : MonoBehaviour
             animator.SetBool("isJumping", true);
         }
 
-        if (!isGrounded)
-        {
-            animator.SetBool("isJumping", false);
-        }
-
     }
 
     public void RunCheck()
@@ -95,26 +96,51 @@ public class PlayerMovement : MonoBehaviour
         {
             isSprinting = !isSprinting;
 
-            if (isSprinting==true)
+            if (isSprinting)
             {
-                staminaSlider.UseStamina(staminaUseAmount);
+                staminaBar?.SpendStart(staminaUseAmount);
             }
-
             else
             {
-                staminaSlider.UseStamina(0);
+                staminaBar?.SpendStop();
             }
-
         }
 
-        if (isSprinting==true)
+        if (isSprinting)
         {
             sprintSpeed = sprintingSpeedMultiplier;
-
+            if (staminaBar != null && staminaBar.IsDepleted)
+            {
+                ForceStopSprinting();
+            }
         }
         else
         {
-            sprintSpeed = 1;
-         }
+            sprintSpeed = 1f;
+        }
+    }
+
+    public void ForceStopSprinting()
+    {
+        if (!isSprinting)
+        {
+            return;
+        }
+
+        isSprinting = false;
+        sprintSpeed = 1f;
+    }
+
+    private void UpdateJumpAnimationState()
+    {
+        if (animator == null)
+        {
+            return;
+        }
+
+        if (isGrounded && Mathf.Abs(velocity.y) <= 0.01f)
+        {
+            animator.SetBool("isJumping", false);
+        }
     }
 }
